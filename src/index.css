@@ -1,0 +1,80 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #09090b;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── react-grid-layout overrides ── */
+.kaleido-grid {
+  min-height: 100%;
+}
+
+/* Make resize handles more visible in edit mode */
+.react-resizable-handle {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.react-grid-item:hover .react-resizable-handle,
+.react-grid-item:focus-within .react-resizable-handle {
+  opacity: 1;
+}
+
+.react-resizable-handle::after {
+  border-color: rgba(99, 102, 241, 0.8) !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-width: 0 2px 2px 0 !important;
+}
+
+/* Remove blue placeholder box colour */
+.react-grid-item.react-grid-placeholder {
+  background: rgba(99, 102, 241, 0.25) !important;
+  border: 1px dashed rgba(99, 102, 241, 0.6) !important;
+  border-radius: 8px;
+  opacity: 1 !important;
+}
+
+/* Smooth item transitions */
+.react-grid-item {
+  transition: all 200ms ease !important;
+  transition-property: left, top, width, height !important;
+}
+
+.react-grid-item.react-draggable-dragging {
+  transition: none !important;
+  z-index: 100;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
