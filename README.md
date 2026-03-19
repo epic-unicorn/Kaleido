@@ -7,6 +7,8 @@ A modern, fast video grid application for managing multiple concurrent video str
 ![Vite](https://img.shields.io/badge/Vite-8-blueviolet?logo=vite&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+> ⚡ **Note**: This project is completely vibe coded. It was built fast, intuitively, and without rigid planning. Works great, looks great, *chef's kiss*.
+
 ## ✨ Features
 
 ### 🎥 Multi-Source Video Support
