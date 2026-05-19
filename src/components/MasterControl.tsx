@@ -1,11 +1,14 @@
-import { Volume2, VolumeX, Plus, Wifi } from 'lucide-react';
+import { useState } from 'react';
+import { Volume2, VolumeX, Plus, Wifi, Zap } from 'lucide-react';
 import { useGridStore } from '../store/useGridStore';
 
 interface MasterControlProps {
   onAddStream: () => void;
+  hypeEnabled: boolean;
+  onToggleHype: () => void;
 }
 
-export default function MasterControl({ onAddStream }: MasterControlProps) {
+export default function MasterControl({ onAddStream, hypeEnabled, onToggleHype }: MasterControlProps) {
   const tiles = useGridStore((s) => s.tiles);
   const soloTileId = useGridStore((s) => s.soloTileId);
   const muteAll = useGridStore((s) => s.muteAll);
@@ -82,6 +85,22 @@ export default function MasterControl({ onAddStream }: MasterControlProps) {
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Hype Detection toggle */}
+      <button
+        disabled={totalStreams === 0}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed border ${
+          hypeEnabled
+            ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 hover:bg-amber-500/25'
+            : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700 hover:text-white'
+        }`}
+        onClick={onToggleHype}
+        title={hypeEnabled ? 'Hype Detection on — soloing most-viewed stream' : 'Enable Hype Detection'}
+      >
+        <Zap className="w-3.5 h-3.5" />
+        Hype
+        {hypeEnabled && <span className="ml-1 text-[10px] font-bold">ON</span>}
+      </button>
 
       {/* Add Stream CTA */}
       <button

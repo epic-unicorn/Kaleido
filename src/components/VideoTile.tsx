@@ -6,11 +6,29 @@ import {
   Maximize2,
   Minimize2,
   X,
-  GripVertical,
   Info,
+  Users,
 } from 'lucide-react';
 import type { GridLayoutItem } from '../types';
 import { getSourceLabel, getSourceColor } from '../utils/sourceDetector';
+import { useGridStore } from '../store/useGridStore';
+import { useYouTubeMetadata } from '../hooks/useYouTubeMetadata';
+import { useTwitchStream } from '../hooks/useTwitchStream';
+
+// ── Twitch official iframe embed ───────────────────────────────────────────
+function TwitchEmbed({ channel, muted, playing }: { channel: string; muted: boolean; playing: boolean }) {
+  const parent = window.location.hostname || 'localhost';
+  const src = `https://player.twitch.tv/?channel=${encodeURIComponent(channel)}&parent=${parent}&muted=${muted}&autoplay=${playing}`;
+  return (
+    <iframe
+      src={src}
+      allowFullScreen
+      frameBorder="0"
+      className="absolute inset-0 w-full h-full"
+      allow="autoplay; fullscreen"
+    />
+  );
+}
 
 interface VideoTileProps {
   tile: GridLayoutItem;
@@ -35,6 +53,24 @@ const VideoTile = React.memo(function VideoTile({
   const [showInfo, setShowInfo] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isReady, setIsReady] = useState(false);
+
+  const tileCount = useGridStore((s) => s.tiles.length);
+  const isPlaying = !isAnyTileSoloed || isSoloed;
+
+  // ── Live metadata ──────────────────────────────────────────────────────
+  const ytMeta = useYouTubeMetadata(tile.type === 'youtube' ? tile.url : '');
+  const twitchMeta = useTwitchStream(tile.type === 'twitch' ? tile.url : '');
+  const viewerCount: number | null =
+    tile.type === 'youtube' ? (ytMeta?.viewerCount ?? null) :
+    tile.type === 'twitch' ? (twitchMeta?.isLive ? twitchMeta.viewerCount : null) :
+    null;
+  const liveTitle =
+    tile.type === 'youtube' ? (ytMeta?.title ?? tile.title) :
+    tile.type === 'twitch' ? (twitchMeta?.title ?? tile.title) :
+    tile.title;
+  const isLive =
+    (tile.type === 'youtube' && ytMeta?.isLive) ||
+    (tile.type === 'twitch' && twitchMeta?.isLive === true);
 
   // Effective mute: solo logic overrides individual mute
   const effectiveMuted = tile.isMuted || (isAnyTileSoloed && !isSoloed);
@@ -68,19 +104,30 @@ const VideoTile = React.memo(function VideoTile({
     >
       {/* ── Video Player ── */}
       {!hasError ? (
+        tile.type === 'twitch' ? (
+          <TwitchEmbed
+            channel={tile.url.match(/twitch\.tv\/([^/?#]+)/i)?.[1] ?? ''}
+            muted={effectiveMuted}
+            playing={isPlaying}
+          />
+        ) : (
         <ReactPlayer
           src={tile.url}
           width="100%"
           height="100%"
-          playing
+          playing={isPlaying}
           loop
           muted={effectiveMuted}
           controls={false}
           playsInline
           style={{ position: 'absolute', inset: 0, objectFit: 'cover' } as React.CSSProperties}
+          config={tile.type === 'hls' && tileCount > 4 ? {
+            file: { hlsOptions: { capLevelToPlayerSize: true, maxMaxBufferLength: 15, startLevel: 0 } }
+          } : undefined}
           onReady={handleReady}
           onError={handleError}
         />
+        )
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-900">
           <div
@@ -95,6 +142,12 @@ const VideoTile = React.memo(function VideoTile({
           <p className="text-zinc-600 text-xs text-center px-4 truncate max-w-full">
             {tile.url}
           </p>
+          <button
+            className="mt-1 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-500 transition-colors"
+            onClick={() => { setHasError(false); setIsReady(false); }}
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -125,16 +178,23 @@ const VideoTile = React.memo(function VideoTile({
           background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%)',
         }}
       >
-        {/* Drag handle — only visual target in edit mode */}
-        {isEditMode && (
-          <div className="drag-handle cursor-grab active:cursor-grabbing text-zinc-400 hover:text-white flex-shrink-0">
-            <GripVertical className="w-4 h-4" />
-          </div>
-        )}
+        {/* Drag handle removed — drag is disabled */}
 
         <span className="text-white text-xs font-medium truncate flex-1 min-w-0">
-          {tile.title}
+          {liveTitle}
         </span>
+
+        {/* Live badge + viewer count */}
+        {isLive && (
+          <span className="flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0 bg-red-600/80 text-white">
+            ● LIVE
+          </span>
+        )}
+        {viewerCount !== null && (
+          <span className="flex items-center gap-1 text-xs text-zinc-300 flex-shrink-0">
+            <Users className="w-3 h-3" />{viewerCount.toLocaleString()}
+          </span>
+        )}
 
         {/* Source type badge */}
         <span
@@ -147,6 +207,20 @@ const VideoTile = React.memo(function VideoTile({
         >
           {sourceLabel}
         </span>
+
+        {/* Delete button */}
+        {isEditMode && (
+          <button
+            className="p-1 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(tile.id);
+            }}
+            title="Remove tile"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* ── Bottom Bar: controls ── */}
@@ -212,17 +286,6 @@ const VideoTile = React.memo(function VideoTile({
           </button>
         </div>
 
-        {/* Delete button */}
-        <button
-          className="p-1.5 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(tile.id);
-          }}
-          title="Remove tile"
-        >
-          <X className="w-4 h-4" />
-        </button>
       </div>
 
       {/* ── Source Info Overlay ── */}
@@ -254,7 +317,7 @@ const VideoTile = React.memo(function VideoTile({
             </div>
             <div>
               <p className="text-zinc-400 text-xs uppercase tracking-wider mb-1">Title</p>
-              <p className="text-white font-medium">{tile.title}</p>
+              <p className="text-white font-medium">{liveTitle}</p>
             </div>
             <div>
               <p className="text-zinc-400 text-xs uppercase tracking-wider mb-1">Source URL</p>
@@ -264,6 +327,15 @@ const VideoTile = React.memo(function VideoTile({
             </div>
             <div className="flex gap-3 text-xs text-zinc-500">
               <span>Audio: {effectiveMuted ? 'Muted' : 'Active'}</span>
+              {isLive && <span className="text-red-400 font-bold">● LIVE</span>}
+              {viewerCount !== null && (
+                <span className="flex items-center gap-1 text-zinc-400">
+                  <Users className="w-3 h-3" />{viewerCount.toLocaleString()} viewers
+                </span>
+              )}
+              {twitchMeta?.gameName && (
+                <span className="text-zinc-400 truncate">{twitchMeta.gameName}</span>
+              )}
               {isSoloed && (
                 <span style={{ color: sourceColor }}>● Solo</span>
               )}

@@ -21,6 +21,10 @@ const QUICK_EXAMPLES = [
     label: 'LoFi Hip Hop Radio (YouTube)',
     url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
   },
+  {
+    label: 'Twitch channel (replace name)',
+    url: 'https://www.twitch.tv/twitchdev',
+  },
 ];
 
 export default function AddStreamModal({ isOpen, onClose }: AddStreamModalProps) {

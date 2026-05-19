@@ -29,6 +29,8 @@ body {
 .react-resizable-handle {
   opacity: 0;
   transition: opacity 0.15s;
+  z-index: 20;
+  position: absolute;
 }
 
 .react-grid-item:hover .react-resizable-handle,

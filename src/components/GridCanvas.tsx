@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import type { Layout as RGLLayout } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
@@ -11,8 +11,9 @@ import { isValidUrl } from '../utils/sourceDetector';
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const COLS = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
-const ROW_HEIGHT = 80;
 const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
+const MARGIN_Y = 6;
+const PADDING_Y = 8;
 
 interface GridCanvasProps {
   onAddStreamRequest: () => void;
@@ -29,7 +30,24 @@ export default function GridCanvas({ onAddStreamRequest }: GridCanvasProps) {
   const addTile = useGridStore((s) => s.addTile);
 
   const [isDragOver, setIsDragOver] = useState(false);
+  const [containerHeight, setContainerHeight] = useState(600);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerHeight(entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const maxRows = tiles.length > 0 ? Math.max(...tiles.map((t) => t.y + t.h)) : 6;
+  const rowHeight = Math.max(
+    1,
+    (containerHeight - PADDING_Y * 2 - MARGIN_Y * (maxRows - 1)) / maxRows
+  );
 
   // ── react-grid-layout layout sync ──────────────────────────────────────
   const layouts = {
@@ -68,10 +86,10 @@ export default function GridCanvas({ onAddStreamRequest }: GridCanvasProps) {
       const relY = e.clientY - rect.top;
       const colWidth = rect.width / 12;
       const col = Math.max(0, Math.min(11, Math.floor(relX / colWidth)));
-      const row = Math.max(0, Math.floor(relY / ROW_HEIGHT));
+      const row = Math.max(0, Math.min(maxRows - 2, Math.floor(relY / rowHeight)));
       return { col, row };
     },
-    []
+    [rowHeight, maxRows]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -119,7 +137,7 @@ export default function GridCanvas({ onAddStreamRequest }: GridCanvasProps) {
   return (
     <div
       ref={containerRef}
-      className="relative flex-1 overflow-y-auto"
+      className="relative flex-1 overflow-hidden"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -177,21 +195,20 @@ export default function GridCanvas({ onAddStreamRequest }: GridCanvasProps) {
           className="kaleido-grid"
           layouts={layouts}
           cols={COLS}
-          rowHeight={ROW_HEIGHT}
+          rowHeight={rowHeight}
           breakpoints={BREAKPOINTS}
-          isDraggable={isEditMode}
+          isDraggable={false}
           isResizable={isEditMode}
-          draggableHandle=".drag-handle"
           margin={[6, 6]}
           containerPadding={[8, 8]}
           onLayoutChange={onLayoutChange}
           useCSSTransforms
-          compactType={null}
+          compactType="vertical"
           preventCollision={false}
           resizeHandles={['se', 'sw', 'ne', 'nw']}
         >
           {tiles.map((tile) => (
-            <div key={tile.id} className="overflow-hidden rounded-lg">
+            <div key={tile.id} className="rounded-lg">
               <VideoTile
                 tile={tile}
                 isEditMode={isEditMode}
@@ -208,8 +225,8 @@ export default function GridCanvas({ onAddStreamRequest }: GridCanvasProps) {
 
       {/* Solo overlay */}
       {soloTileId && (
-        <div className="absolute inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
-          <div className="w-full h-full max-w-6xl max-h-96 rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black">
+        <div className="absolute inset-0 z-40 bg-black/80 flex items-center justify-center p-3">
+          <div className="w-full h-full rounded-xl overflow-hidden shadow-2xl border border-white/10 bg-black">
             {tiles.map((tile) =>
               tile.id === soloTileId ? (
                 <div key={tile.id} className="w-full h-full">

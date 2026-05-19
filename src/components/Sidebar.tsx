@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
 import {
-  LayoutTemplate,
-  Shield,
-  Film,
   FlaskConical,
   Trash2,
   Lock,
@@ -12,13 +9,38 @@ import {
 } from 'lucide-react';
 import { useGridStore } from '../store/useGridStore';
 import { PRESETS } from '../utils/presets';
-import type { PresetName } from '../utils/presets';
+import type { Preset, PresetName } from '../utils/presets';
 
-const PRESET_ICONS: Record<PresetName, React.ReactNode> = {
-  focus: <LayoutTemplate className="w-4 h-4" />,
-  'security-wall': <Shield className="w-4 h-4" />,
-  cinematic: <Film className="w-4 h-4" />,
+/** Maps tile count → the best-fit preset to suggest */
+const SUGGESTIONS: Partial<Record<number, PresetName>> = {
+  2: 'cinematic',
+  3: 'spotlight',
+  4: 'quad',
+  5: 'focus',
+  9: 'security-wall',
 };
+
+function PresetPreview({ preset, className }: { preset: Preset; className?: string }) {
+  const maxR = Math.max(...preset.slots.map((s) => s.y + s.h));
+  return (
+    <svg viewBox={`0 0 12 ${maxR}`} className={className} preserveAspectRatio="none">
+      {preset.slots.map((slot, i) => (
+        <rect
+          key={i}
+          x={slot.x + 0.1}
+          y={slot.y + 0.1}
+          width={slot.w - 0.2}
+          height={slot.h - 0.2}
+          fill="currentColor"
+          fillOpacity={0.25}
+          stroke="currentColor"
+          strokeWidth={0.4}
+          rx={0.3}
+        />
+      ))}
+    </svg>
+  );
+}
 
 export default function Sidebar() {
   const isEditMode = useGridStore((s) => s.isEditMode);
@@ -29,6 +51,7 @@ export default function Sidebar() {
   const seedSamples = useGridStore((s) => s.seedSamples);
   const clearAll = useGridStore((s) => s.clearAll);
   const [collapsed, setCollapsed] = useState(false);
+  const suggestedPreset: PresetName | null = SUGGESTIONS[tileCount] ?? null;
 
   return (
     <aside
@@ -79,7 +102,7 @@ export default function Sidebar() {
                 ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                 : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
             }`}
-            title={isEditMode ? 'Edit Mode (click to lock)' : 'View Mode (click to unlock)'}
+            title={isEditMode ? 'Resize Mode (click to lock)' : 'Locked (click to resize)'}
           >
             {isEditMode ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
           </button>
@@ -98,7 +121,7 @@ export default function Sidebar() {
               ) : (
                 <Lock className="w-4 h-4" />
               )}
-              {isEditMode ? 'Edit Mode' : 'View Mode'}
+              {isEditMode ? 'Resize Mode' : 'Locked'}
             </span>
             <div
               className={`w-8 h-[18px] rounded-full transition-colors relative ${
@@ -135,10 +158,12 @@ export default function Sidebar() {
                 className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                   isActive
                     ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                    : suggestedPreset === preset.id
+                    ? 'bg-amber-500/10 text-amber-300 border border-amber-500/40 hover:bg-amber-500/20'
                     : 'bg-zinc-800/60 text-zinc-400 border border-transparent hover:bg-zinc-700 hover:text-white'
                 }`}
               >
-                {PRESET_ICONS[preset.id]}
+                <PresetPreview preset={preset} className="w-5 h-4" />
               </button>
             );
           })
@@ -146,25 +171,34 @@ export default function Sidebar() {
           <div className="space-y-1.5">
           {PRESETS.map((preset) => {
             const isActive = activePreset === preset.id;
+            const isSuggested = suggestedPreset === preset.id && !isActive;
             const canApply = tileCount > 0;
             return (
               <button
                 key={preset.id}
                 disabled={!canApply}
-                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                   isActive
                     ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                    : isSuggested
+                    ? 'bg-amber-500/10 text-zinc-200 border border-amber-500/40 hover:bg-amber-500/20'
                     : 'bg-zinc-800/60 text-zinc-300 border border-transparent hover:bg-zinc-700/80 hover:border-zinc-600'
                 }`}
                 onClick={() => loadPreset(preset.id)}
                 title={canApply ? `Apply ${preset.label} layout` : 'Add streams first'}
               >
-                <span className={`mt-0.5 flex-shrink-0 ${isActive ? 'text-indigo-400' : 'text-zinc-500'}`}>
-                  {PRESET_ICONS[preset.id]}
+                <span className={`flex-shrink-0 ${
+                  isActive ? 'text-indigo-400' : isSuggested ? 'text-amber-400' : 'text-zinc-500'
+                }`}>
+                  <PresetPreview preset={preset} className="w-10 h-7" />
                 </span>
-                <span>
+                <span className="flex-1 min-w-0">
                   <span className="block text-sm font-medium leading-tight">{preset.label}</span>
                   <span className="block text-xs text-zinc-500 mt-0.5">{preset.description}</span>
+                  {isSuggested && (
+                    <span className="block text-xs text-amber-400/80 mt-0.5 font-medium">✶ Suggested
+                    </span>
+                  )}
                 </span>
               </button>
             );
